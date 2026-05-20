@@ -12,6 +12,7 @@ __version__ = "0.2.0.dev0"
 # Public API — kullanıcının dokunabileceği her şey.
 # Dar tut (Modül 7 dersi): yüzey alanı küçük = uyumluluk kolay.
 from .agent import Agent
+from .subagent import subagent
 from .errors import (
     AgentError,
     AgentMaxTurnsError,
@@ -34,6 +35,7 @@ __all__ = [
     "Agent",
     "Tool",
     "tool",
+    "subagent",
     # Stream events (v0.2)
     "StreamEvent",
     "TextDeltaEvent",

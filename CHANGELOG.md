@@ -32,8 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     these conditions are reported back to the model via `tool_result`).
 - `tool_choice` parameter on `Agent.__init__` and `Agent.run()`: pin a
   specific tool, force any tool, or disable tools entirely.
-- `@subagent` decorator and sub-agent spawning support for delegating
-  sub-tasks without polluting the parent agent's context.
+- `subagent(...)` factory — creates a `Tool` that, when called by a
+  parent agent, internally runs a fresh `Agent` with its own system
+  prompt, tools, model, and `max_turns`. The parent agent treats it
+  as a regular tool; the sub-agent's full loop runs in isolation and
+  only its final text returns to the parent.
+  Supports cheap-model delegation (default `claude-haiku-4-5`),
+  context isolation, and independent client injection for testing.
 - `Usage` aggregator: per-turn token / cache / cost data is now collected
   across the entire loop and exposed as `result.usage`.
 
