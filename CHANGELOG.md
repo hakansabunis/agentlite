@@ -11,8 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `agent.stream(message)` — streaming with full tool-loop integration.
   Yields rich events (`text`, `tool_use_start`, `tool_result`, `done`) so
   callers can render token-by-token output and react to tool calls live.
-- `agentlite.testing.MockClient` — public testing helper. Lets users write
-  unit tests against the agent loop without hitting the real Anthropic API.
+- `agentlite.testing` module — public testing helpers:
+  - `MockClient` — scripted mock of the Anthropic client (queues
+    responses for `.create()` and streams for `.stream()`).
+  - `text_response`, `tool_use_response` — build non-streaming responses.
+  - `text_stream`, `tool_use_stream` — build streaming event sequences,
+    including realistic chunked `input_json_delta` for tool inputs.
+  - Lets users write unit tests against their agent code without hitting
+    the real Anthropic API. Coverage of `agentlite.testing` itself: 96%.
 - Typed exception hierarchy under `agentlite.errors`:
   `AgentError` base + `AgentMaxTurnsError`, `ToolExecutionError`,
   `ToolNotFoundError`, `PermissionDeniedError`. Replaces the generic
