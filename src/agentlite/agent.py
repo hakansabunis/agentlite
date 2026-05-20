@@ -20,6 +20,7 @@ from .errors import (
     AgentMaxTurnsError,
     UnexpectedStopReasonError,
 )
+from .usage import Usage
 from .events import (
     DoneEvent,
     ErrorEvent,
@@ -86,6 +87,12 @@ class Agent:
         # hangi Tool olduğunu HIZLI bulmak için.
         self._tool_by_name: dict[str, Tool] = {t.name: t for t in self.tools}
 
+        # Son run/stream'in token kullanımı. Her çağrıda sıfırlanır,
+        # tur tur biriktirilir. Kullanıcı çağrı sonrası okur:
+        #   text = agent.run("...")
+        #   print(agent.last_usage.estimate_cost_usd(agent.model))
+        self.last_usage: Usage = Usage()
+
         # ── İzin sorma fonksiyonu (Modül 4) ──
         # Kullanıcı verirse onu kullan; vermezse terminal tabanlı varsayılan.
         # Bu sayede testte sahte (hep evet/hep hayır) verebiliriz; üretimde
@@ -126,6 +133,8 @@ class Agent:
         messages: list[dict[str, Any]] = [
             {"role": "user", "content": user_message}
         ]
+        # Her stream'in başında usage'ı sıfırla
+        self.last_usage = Usage()
 
         for turn in range(1, self.max_turns + 1):
             # ── 1) Bir stream aç ve event'leri TOPLA ──
@@ -136,7 +145,7 @@ class Agent:
             current_block: dict[str, Any] | None = None  # şu an inşa edilen blok
             partial_json = ""  # tool_use input için biriken JSON parçaları
             stop_reason: str | None = None
-            usage: dict[str, int] = {}
+            turn_usage = Usage()  # bu turun usage'ı, sonra last_usage'a eklenecek
 
             with self._open_stream(messages) as stream:
                 for raw_event in stream:
@@ -194,14 +203,11 @@ class Agent:
                         if hasattr(raw_event, "delta") and hasattr(raw_event.delta, "stop_reason"):
                             stop_reason = raw_event.delta.stop_reason
                         if hasattr(raw_event, "usage"):
-                            u = raw_event.usage
-                            # Sadece olan alanları topla — birikimli
-                            for k in ("input_tokens", "output_tokens",
-                                      "cache_creation_input_tokens",
-                                      "cache_read_input_tokens"):
-                                v = getattr(u, k, None)
-                                if v is not None:
-                                    usage[k] = usage.get(k, 0) + v
+                            # Usage'ı tipli olarak topla (dict yerine Usage objesi)
+                            turn_usage = turn_usage + Usage.from_api_object(raw_event.usage)
+
+            # Stream kapandı — bu turun usage'ını birikime ekle
+            self.last_usage = self.last_usage + turn_usage
 
             # ── 2) Stream kapandı. Şimdi karar zamanı: bitti mi, tool mu? ──
             if stop_reason == "end_turn":
@@ -209,7 +215,11 @@ class Agent:
                 final_text = "".join(
                     b["text"] for b in assistant_blocks if b["type"] == "text"
                 )
-                yield DoneEvent(final_text=final_text, turn_count=turn, usage=usage)
+                yield DoneEvent(
+                    final_text=final_text,
+                    turn_count=turn,
+                    usage=self.last_usage,
+                )
                 return
 
             if stop_reason == "tool_use":
@@ -298,10 +308,16 @@ class Agent:
         messages: list[dict[str, Any]] = [
             {"role": "user", "content": user_message}
         ]
+        # Her run baştan başlar — önceki kullanımı sıfırla
+        self.last_usage = Usage()
 
         for turn in range(1, self.max_turns + 1):
             # ── 1) Modele sor ──
             response = self._call_claude(messages)
+
+            # Bu turun token kullanımını topla (varsa)
+            turn_usage = Usage.from_api_object(getattr(response, "usage", None))
+            self.last_usage = self.last_usage + turn_usage
 
             # ── 2) Stop reason'a göre dallan ──
             if response.stop_reason == "end_turn":

@@ -39,13 +39,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only its final text returns to the parent.
   Supports cheap-model delegation (default `claude-haiku-4-5`),
   context isolation, and independent client injection for testing.
-- `Usage` aggregator: per-turn token / cache / cost data is now collected
-  across the entire loop and exposed as `result.usage`.
+- `Usage` dataclass + `agent.last_usage` attribute. Token usage
+  (`input_tokens`, `output_tokens`, `cache_creation_input_tokens`,
+  `cache_read_input_tokens`) is now accumulated across all turns of a
+  run/stream. After `agent.run(...)` or after consuming `agent.stream(...)`,
+  read `agent.last_usage` for totals. Supports `+` operator for aggregation
+  and `estimate_cost_usd(model)` for $ cost estimation (built-in pricing for
+  Opus 4.7/4.6, Sonnet 4.6/4.5, Haiku 4.5; cache write/read multipliers
+  applied correctly).
 
 ### Changed
-- `Agent.run()` now returns an `AgentResult` object instead of a bare
-  string. The final text is at `result.text`; usage is at `result.usage`.
-  **Breaking**: callers using `text = agent.run(...)` need `text = agent.run(...).text`.
+- `DoneEvent.usage` is now a `Usage` instance (was an untyped dict in
+  the v0.2.0.dev0 streaming preview). The dict-shaped API was never
+  shipped to PyPI, so no released callers are affected.
 
 ## [0.1.0] - 2026-05-20
 

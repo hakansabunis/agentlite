@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from .usage import Usage
+
 
 @dataclass(frozen=True)
 class TextDeltaEvent:
@@ -43,8 +45,8 @@ class DoneEvent:
     """Agent loop bitti — final metin ve toplam usage."""
     final_text: str
     turn_count: int = 0
-    # Token usage (ileride agentlite.Usage olacak — şimdilik dict)
-    usage: dict[str, int] = field(default_factory=dict)
+    # Tipli Usage objesi — kullanıcı estimate_cost_usd() çağırabilir
+    usage: Usage = field(default_factory=Usage)
     type: str = "done"
 
 

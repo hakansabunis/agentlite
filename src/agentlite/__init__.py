@@ -30,12 +30,14 @@ from .events import (
     ToolUseEvent,
 )
 from .tool import Tool, tool
+from .usage import Usage
 
 __all__ = [
     "Agent",
     "Tool",
     "tool",
     "subagent",
+    "Usage",
     # Stream events (v0.2)
     "StreamEvent",
     "TextDeltaEvent",
