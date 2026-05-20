@@ -63,6 +63,7 @@ class Agent:
         max_turns: int = 10,
         enable_caching: bool = True,
         confirm_fn: Any = None,
+        tool_choice: str | dict[str, Any] | None = None,
         client: Any = None,
     ) -> None:
         self.model = model
@@ -72,6 +73,10 @@ class Agent:
         # Caching VARSAYILAN AÇIK — kullanıcı düşünmesin, doğru olan otomatik.
         # Modül 5 dersi: silent invalidator yapmadığımız sürece avantaj net.
         self.enable_caching = enable_caching
+        # Tool kullanım kısıtı — Anthropic'in 4 modu (auto/any/tool/none).
+        # __init__'te belirtilirse her run/stream'de bu kullanılır;
+        # run()/stream() çağrısında override edilebilir.
+        self.default_tool_choice = tool_choice
 
         # İSİM → TOOL eşlemesi — döngü sırasında "get_weather" gelince
         # hangi Tool olduğunu HIZLI bulmak için.
@@ -358,6 +363,10 @@ class Agent:
                 }
                 for t in self.tools
             ]
+            # tool_choice (varsa) — Anthropic API formatına çevrilmiş
+            tc = self._resolve_tool_choice(None)
+            if tc is not None:
+                kwargs["tool_choice"] = tc
 
         return self.client.messages.create(**kwargs)
 
@@ -437,6 +446,38 @@ class Agent:
         # Hiçbir bayrak yoksa varsayılan: izin ver.
         return True
 
+    def _resolve_tool_choice(
+        self, override: str | dict[str, Any] | None
+    ) -> dict[str, Any] | None:
+        """tool_choice string'ini Anthropic API formatına çevir.
+
+        Kabul edilen girdiler:
+            None / "auto"     → None (varsayılan davranış; API'ye gönderilmez)
+            "any"             → {"type": "any"}
+            "none"            → {"type": "none"}
+            "<tool-name>"     → {"type": "tool", "name": "<tool-name>"}
+            dict              → olduğu gibi (geriye dönük uyumluluk)
+
+        Bilinmeyen string → kullanıcının kendi tool'unun adı varsayılır;
+        ama o ad mevcut tool'larda yoksa erken hata fırlatırız (fail-fast).
+        """
+        choice = override if override is not None else self.default_tool_choice
+        if choice is None or choice == "auto":
+            return None
+        if isinstance(choice, dict):
+            return choice
+        if choice == "any":
+            return {"type": "any"}
+        if choice == "none":
+            return {"type": "none"}
+        # Tool adı varsayımı
+        if choice not in self._tool_by_name:
+            raise ValueError(
+                f"tool_choice {choice!r}: bu adda bir tool yok. "
+                f"Mevcut tool'lar: {list(self._tool_by_name.keys())}"
+            )
+        return {"type": "tool", "name": choice}
+
     # ── stream() için yardımcılar ─────────────────────────────────
     def _open_stream(self, messages: list[dict[str, Any]]) -> Any:
         """client.messages.stream(...) için kwargs'ları hazırlar.
@@ -463,6 +504,9 @@ class Agent:
                  "input_schema": t.input_schema}
                 for t in self.tools
             ]
+            tc = self._resolve_tool_choice(None)
+            if tc is not None:
+                kwargs["tool_choice"] = tc
 
         return self.client.messages.stream(**kwargs)
 
