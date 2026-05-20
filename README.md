@@ -1,5 +1,6 @@
 # agentlite
 
+[![PyPI](https://img.shields.io/pypi/v/agentlite-py.svg)](https://pypi.org/project/agentlite-py/)
 [![tests](https://github.com/hakansabunis/agentlite/workflows/tests/badge.svg)](https://github.com/hakansabunis/agentlite/actions)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -35,8 +36,11 @@ If you've ever tried to build a Claude agent in Python you've probably faced thi
 ## Installation
 
 ```bash
-pip install agentlite
+pip install agentlite-py
 ```
+
+> The PyPI distribution name is **`agentlite-py`** (the bare `agentlite` is taken by an unrelated package).
+> The Python import is still `agentlite`: `from agentlite import Agent, tool`.
 
 Requires Python 3.10+. Get an Anthropic API key from [console.anthropic.com](https://console.anthropic.com).
 

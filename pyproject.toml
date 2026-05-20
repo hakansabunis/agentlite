@@ -11,9 +11,18 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+# Dağıtım adı 'agentlite-py' ama Python paket dizini 'src/agentlite'.
+# Hatchling otomatik tahminde başarısız olur, bu yüzden açıkça söylüyoruz.
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentlite"]
+
 # ─── PAKET KİMLİĞİ ───────────────────────────────────────────────
 [project]
-name = "agentlite"
+# PyPI dağıtım adı 'agentlite-py' (sade 'agentlite' başkasına ait).
+# Python import adı hâlâ 'agentlite' — kullanıcı:
+#   pip install agentlite-py
+#   from agentlite import Agent, tool
+name = "agentlite-py"
 version = "0.1.0"
 description = "A small, focused library for building Claude-powered agents in Python."
 readme = "README.md"
