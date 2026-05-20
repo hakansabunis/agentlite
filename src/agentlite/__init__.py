@@ -12,6 +12,14 @@ __version__ = "0.2.0.dev0"
 # Public API — kullanıcının dokunabileceği her şey.
 # Dar tut (Modül 7 dersi): yüzey alanı küçük = uyumluluk kolay.
 from .agent import Agent
+from .errors import (
+    AgentError,
+    AgentMaxTurnsError,
+    PermissionDeniedError,
+    ToolExecutionError,
+    ToolNotFoundError,
+    UnexpectedStopReasonError,
+)
 from .events import (
     DoneEvent,
     ErrorEvent,
@@ -33,5 +41,12 @@ __all__ = [
     "ToolResultEvent",
     "DoneEvent",
     "ErrorEvent",
+    # Exception hierarchy (v0.2)
+    "AgentError",
+    "AgentMaxTurnsError",
+    "UnexpectedStopReasonError",
+    "ToolNotFoundError",
+    "ToolExecutionError",
+    "PermissionDeniedError",
     "__version__",
 ]

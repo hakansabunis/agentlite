@@ -16,6 +16,10 @@ from __future__ import annotations
 import json
 from typing import Any, Iterator
 
+from .errors import (
+    AgentMaxTurnsError,
+    UnexpectedStopReasonError,
+)
 from .events import (
     DoneEvent,
     ErrorEvent,
@@ -237,16 +241,12 @@ class Agent:
                 messages.append({"role": "user", "content": tool_results})
                 continue
 
-            # Beklenmeyen stop_reason
-            yield ErrorEvent(
-                message=f"Beklenmeyen stop_reason: {stop_reason}"
-            )
+            # Beklenmeyen stop_reason — ErrorEvent ile yield (raise değil)
+            yield ErrorEvent(message=str(UnexpectedStopReasonError(stop_reason)))
             return
 
         # max_turns aşıldı
-        yield ErrorEvent(
-            message=f"max_turns ({self.max_turns}) aşıldı"
-        )
+        yield ErrorEvent(message=str(AgentMaxTurnsError(self.max_turns)))
 
     # ──────────────────────────────────────────────────────────────
     # STREAMING — kelime kelime cevap (basit versiyon, tool yok)
@@ -314,14 +314,10 @@ class Agent:
                 continue   # ← döngü başa dön, yeni cevap iste
 
             # Bilinmeyen / hata durumları (refusal, max_tokens vs.)
-            raise RuntimeError(
-                f"Beklenmeyen durdurma sebebi: {response.stop_reason}"
-            )
+            raise UnexpectedStopReasonError(response.stop_reason)
 
         # max_turns aşıldı — güvenlik freni devreye girdi (Modül 3).
-        raise RuntimeError(
-            f"max_turns ({self.max_turns}) aşıldı. Döngü sonsuza gitmesin diye kesildi."
-        )
+        raise AgentMaxTurnsError(self.max_turns)
 
     # ──────────────────────────────────────────────────────────────
     # YARDIMCI METOTLAR (alt çizgi → dahili, kullanıcıya açık değil)

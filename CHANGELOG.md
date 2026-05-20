@@ -19,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     including realistic chunked `input_json_delta` for tool inputs.
   - Lets users write unit tests against their agent code without hitting
     the real Anthropic API. Coverage of `agentlite.testing` itself: 96%.
+- Typed exception hierarchy under `agentlite.errors` (also re-exported from
+  the package root):
+  - `AgentError` — base class; users can `except AgentError` to catch all
+    agentlite-raised errors.
+  - `AgentMaxTurnsError` — raised by `Agent.run()` when `max_turns` is
+    exceeded (replaces the generic `RuntimeError` from v0.1).
+  - `UnexpectedStopReasonError` — raised when the model stops with an
+    unhandled `stop_reason` (e.g. `"refusal"`).
+  - `ToolNotFoundError`, `ToolExecutionError`, `PermissionDeniedError` —
+    available as classes for user code; not raised by default (fail-safe:
+    these conditions are reported back to the model via `tool_result`).
 - `tool_choice` parameter on `Agent.__init__` and `Agent.run()`: pin a
   specific tool, force any tool, or disable tools entirely.
 - `@subagent` decorator and sub-agent spawning support for delegating

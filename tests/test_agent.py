@@ -7,6 +7,7 @@ Bu sayede testler hızlı (saniyeden az), ücretsiz ve internet gerektirmez.
 import pytest
 
 from agentlite import Agent, tool
+from agentlite.errors import AgentMaxTurnsError
 
 
 # ─── Mock yapı taşları (önceki demo'lardan damıtılmış) ────────
@@ -104,7 +105,7 @@ def test_agent_max_turns_asilirsa_hata_atar():
     ])
     agent = Agent(model="x", tools=[noop], client=client, max_turns=3)
 
-    with pytest.raises(RuntimeError, match="max_turns"):
+    with pytest.raises(AgentMaxTurnsError, match="max_turns"):
         agent.run("dönsene durmadan")
 
 
