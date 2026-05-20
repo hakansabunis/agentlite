@@ -93,7 +93,7 @@ agent.run("Find all Python files and summarize the largest one.")
 
 ## Documentation
 
-Full docs and design notes at: **https://hakansabunis.github.io/blog/**
+Full docs and design notes at: **https://hakansabunis.com**
 
 ## License
 
