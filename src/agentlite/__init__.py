@@ -7,7 +7,7 @@ buradaki isimleri görür; geri kalan dahili (alt çizgi ile başlayanlar veya
 import edilmeyenler) gizli kalır.
 """
 
-__version__ = "0.2.0.dev0"
+__version__ = "0.2.0"
 
 # Public API — kullanıcının dokunabileceği her şey.
 # Dar tut (Modül 7 dersi): yüzey alanı küçük = uyumluluk kolay.

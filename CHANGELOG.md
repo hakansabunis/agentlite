@@ -5,7 +5,7 @@ All notable changes to **agentlite** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-05-20
 
 ### Added
 - `agent.stream(message)` — streaming with full tool-loop integration.
@@ -66,5 +66,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `@tool(requires_confirmation=True)` with pluggable `confirm_fn`.
 - 17 unit tests, 80% coverage, GitHub Actions CI on Python 3.10–3.13.
 
-[Unreleased]: https://github.com/hakansabunis/agentlite/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/hakansabunis/agentlite/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/hakansabunis/agentlite/releases/tag/v0.2.0
 [0.1.0]: https://github.com/hakansabunis/agentlite/releases/tag/v0.1.0

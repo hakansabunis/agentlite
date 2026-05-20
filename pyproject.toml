@@ -23,7 +23,7 @@ packages = ["src/agentlite"]
 #   pip install agentlite-py
 #   from agentlite import Agent, tool
 name = "agentlite-py"
-version = "0.1.0"
+version = "0.2.0"
 description = "A small, focused library for building Claude-powered agents in Python."
 readme = "README.md"
 license = "MIT"
