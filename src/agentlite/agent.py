@@ -3,15 +3,27 @@
 Bu modül kütüphanenin İKİNCİ ana parçası (tool.py'dan sonra).
 Modül 3'teki query.ts'nin minyatür Python karşılığı.
 
-v0.3 — STREAMING eklendi (stream_text metodu). Tool döngülü streaming sonra.
-v0.2 — TOOL DÖNGÜSÜ eklendi. Artık gerçek bir agent: model araç çağırabilir,
-       sonucu görüp yeniden düşünebilir.
+v0.2 — STREAM + TOOL döngüsü entegrasyonu (agent.stream metodu).
+       Eski stream_text() korunuyor (sadece metin).
+v0.1.0:
+  - TOOL DÖNGÜSÜ: model araç çağırabilir, sonucu görüp yeniden düşünebilir.
+  - PROMPT CACHING varsayılan açık.
+  - PERMISSION SYSTEM (read_only, requires_confirmation).
 """
 
 from __future__ import annotations
 
+import json
 from typing import Any, Iterator
 
+from .events import (
+    DoneEvent,
+    ErrorEvent,
+    StreamEvent,
+    TextDeltaEvent,
+    ToolResultEvent,
+    ToolUseEvent,
+)
 from .tool import Tool
 
 
@@ -76,6 +88,160 @@ class Agent:
             import anthropic
             client = anthropic.Anthropic()
         self.client = client
+
+    # ──────────────────────────────────────────────────────────────
+    # STREAM + TOOL DÖNGÜSÜ — v0.2'nin yıldız özelliği
+    #
+    # Modül 3 (query loop) + Modül 8 (stream events) birleşimi.
+    # Anthropic SDK'nın stream event'lerini bizim StreamEvent'lere çevirip
+    # tool döngüsünü canlı yönetir. Kullanıcı için tek bir akış.
+    # ──────────────────────────────────────────────────────────────
+    def stream(self, user_message: str) -> Iterator[StreamEvent]:
+        """Agent'ı bir kullanıcı mesajıyla çalıştır, EVENT akışı üret.
+
+        Yield edilen tipler:
+            TextDeltaEvent   — modelin yeni metin parçası
+            ToolUseEvent     — model tool çağırmak istiyor (input tamam)
+            ToolResultEvent  — bir tool çalıştı (veya reddedildi)
+            DoneEvent        — agent bitti (final metin + usage)
+            ErrorEvent       — hata (max_turns aşıldı vs.)
+
+        Kullanım:
+            for event in agent.stream("..."):
+                if event.type == "text":
+                    print(event.text, end="", flush=True)
+                elif event.type == "tool_use":
+                    print(f"🔧 {event.name}({event.input})")
+                ...
+        """
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": user_message}
+        ]
+
+        for turn in range(1, self.max_turns + 1):
+            # ── 1) Bir stream aç ve event'leri TOPLA ──
+            # Anthropic SDK'sının stream'inden gelen ham event'leri
+            # bizim event tiplerimize dönüştürürken AYNI ZAMANDA
+            # assistant mesajını yeniden inşa ediyoruz (sonra geri yollamak için).
+            assistant_blocks: list[dict[str, Any]] = []
+            current_block: dict[str, Any] | None = None  # şu an inşa edilen blok
+            partial_json = ""  # tool_use input için biriken JSON parçaları
+            stop_reason: str | None = None
+            usage: dict[str, int] = {}
+
+            with self._open_stream(messages) as stream:
+                for raw_event in stream:
+                    et = raw_event.type
+
+                    # Yeni blok başladı (text veya tool_use)
+                    if et == "content_block_start":
+                        cb = raw_event.content_block
+                        if cb.type == "text":
+                            current_block = {"type": "text", "text": ""}
+                        elif cb.type == "tool_use":
+                            current_block = {
+                                "type": "tool_use",
+                                "id": cb.id,
+                                "name": cb.name,
+                                "input": {},
+                            }
+                            partial_json = ""   # bu blok için sıfırla
+
+                    # Blok içine parça geldi
+                    elif et == "content_block_delta":
+                        delta = raw_event.delta
+                        if delta.type == "text_delta" and current_block is not None:
+                            current_block["text"] += delta.text
+                            yield TextDeltaEvent(text=delta.text)  # ← CANLI akıt
+                        elif delta.type == "input_json_delta":
+                            # Tool input'u parça parça JSON metin halinde gelir.
+                            # Biriktir, blok bittiğinde parse et.
+                            partial_json += delta.partial_json
+
+                    # Blok bitti — finalize et
+                    elif et == "content_block_stop":
+                        if current_block is None:
+                            continue
+                        if current_block["type"] == "tool_use":
+                            # JSON'u parse et (boş ise {})
+                            try:
+                                current_block["input"] = (
+                                    json.loads(partial_json) if partial_json else {}
+                                )
+                            except json.JSONDecodeError:
+                                current_block["input"] = {}
+                            # Şimdi tool_use eventi yield et — input ARTIK tamam
+                            yield ToolUseEvent(
+                                name=current_block["name"],
+                                input=current_block["input"],
+                                tool_use_id=current_block["id"],
+                            )
+                        assistant_blocks.append(current_block)
+                        current_block = None
+                        partial_json = ""
+
+                    # Mesaj kapanış meta-bilgisi (stop_reason + usage)
+                    elif et == "message_delta":
+                        if hasattr(raw_event, "delta") and hasattr(raw_event.delta, "stop_reason"):
+                            stop_reason = raw_event.delta.stop_reason
+                        if hasattr(raw_event, "usage"):
+                            u = raw_event.usage
+                            # Sadece olan alanları topla — birikimli
+                            for k in ("input_tokens", "output_tokens",
+                                      "cache_creation_input_tokens",
+                                      "cache_read_input_tokens"):
+                                v = getattr(u, k, None)
+                                if v is not None:
+                                    usage[k] = usage.get(k, 0) + v
+
+            # ── 2) Stream kapandı. Şimdi karar zamanı: bitti mi, tool mu? ──
+            if stop_reason == "end_turn":
+                # Toplam metin = tüm text bloklarının birleşimi
+                final_text = "".join(
+                    b["text"] for b in assistant_blocks if b["type"] == "text"
+                )
+                yield DoneEvent(final_text=final_text, turn_count=turn, usage=usage)
+                return
+
+            if stop_reason == "tool_use":
+                # ── 3) Assistant mesajını messages'a ekle ──
+                messages.append({
+                    "role": "assistant",
+                    "content": [self._block_to_dict_v2(b) for b in assistant_blocks],
+                })
+
+                # ── 4) Tool'ları çalıştır, sonuçları topla ──
+                tool_results = []
+                for block in assistant_blocks:
+                    if block["type"] != "tool_use":
+                        continue
+                    result_text, is_error = self._execute_tool(block)
+                    yield ToolResultEvent(
+                        tool_use_id=block["id"],
+                        result=result_text,
+                        is_error=is_error,
+                    )
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block["id"],
+                        "content": result_text,
+                        "is_error": is_error,
+                    })
+
+                # ── 5) Sonuçları user mesajı olarak ekle, döngüye devam ──
+                messages.append({"role": "user", "content": tool_results})
+                continue
+
+            # Beklenmeyen stop_reason
+            yield ErrorEvent(
+                message=f"Beklenmeyen stop_reason: {stop_reason}"
+            )
+            return
+
+        # max_turns aşıldı
+        yield ErrorEvent(
+            message=f"max_turns ({self.max_turns}) aşıldı"
+        )
 
     # ──────────────────────────────────────────────────────────────
     # STREAMING — kelime kelime cevap (basit versiyon, tool yok)
@@ -270,6 +436,71 @@ class Agent:
 
         # Hiçbir bayrak yoksa varsayılan: izin ver.
         return True
+
+    # ── stream() için yardımcılar ─────────────────────────────────
+    def _open_stream(self, messages: list[dict[str, Any]]) -> Any:
+        """client.messages.stream(...) için kwargs'ları hazırlar.
+
+        _call_claude ile aynı mantık ama .stream() döndürür.
+        """
+        kwargs: dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": 4096,
+            "messages": messages,
+        }
+        if self.system:
+            if self.enable_caching:
+                kwargs["system"] = [{
+                    "type": "text", "text": self.system,
+                    "cache_control": {"type": "ephemeral"},
+                }]
+            else:
+                kwargs["system"] = self.system
+
+        if self.tools:
+            kwargs["tools"] = [
+                {"name": t.name, "description": t.description,
+                 "input_schema": t.input_schema}
+                for t in self.tools
+            ]
+
+        return self.client.messages.stream(**kwargs)
+
+    def _execute_tool(self, block: dict[str, Any]) -> tuple[str, bool]:
+        """Bir tool_use bloğunu çalıştır → (result, is_error) döndür.
+
+        İzin kontrolü ve hata yakalama dahil. stream() ve run()'da paylaşılan
+        mantığı tek yere topladık (DRY — kursumuzun Modül 2 dersi:
+        sorumluluğu doğru yere koy).
+        """
+        tool = self._tool_by_name.get(block["name"])
+        if tool is None:
+            return f"HATA: '{block['name']}' adında bir araç yok", True
+
+        if not self._check_permission(tool, block["input"]):
+            return (
+                f"İZİN REDDEDİLDİ: kullanıcı '{tool.name}' çağrısını onaylamadı",
+                True,
+            )
+
+        try:
+            return str(tool.call(**block["input"])), False
+        except Exception as e:  # noqa: BLE001
+            return f"HATA: araç çalışırken patladı → {e}", True
+
+    def _block_to_dict_v2(self, block: dict[str, Any]) -> dict[str, Any]:
+        """stream() içinde bloklarımız zaten dict olarak inşa ediliyor,
+        sadece messages'a uygun forma çevir."""
+        if block["type"] == "text":
+            return {"type": "text", "text": block["text"]}
+        if block["type"] == "tool_use":
+            return {
+                "type": "tool_use",
+                "id": block["id"],
+                "name": block["name"],
+                "input": block["input"],
+            }
+        raise ValueError(f"Bilinmeyen blok tipi: {block['type']}")
 
     def _block_to_dict(self, block: Any) -> dict[str, Any]:
         """Anthropic response bloğunu API'ye geri gönderilebilir dict'e çevir."""

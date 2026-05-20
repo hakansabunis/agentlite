@@ -7,11 +7,31 @@ buradaki isimleri görür; geri kalan dahili (alt çizgi ile başlayanlar veya
 import edilmeyenler) gizli kalır.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0.dev0"
 
 # Public API — kullanıcının dokunabileceği her şey.
 # Dar tut (Modül 7 dersi): yüzey alanı küçük = uyumluluk kolay.
 from .agent import Agent
+from .events import (
+    DoneEvent,
+    ErrorEvent,
+    StreamEvent,
+    TextDeltaEvent,
+    ToolResultEvent,
+    ToolUseEvent,
+)
 from .tool import Tool, tool
 
-__all__ = ["Agent", "Tool", "tool", "__version__"]
+__all__ = [
+    "Agent",
+    "Tool",
+    "tool",
+    # Stream events (v0.2)
+    "StreamEvent",
+    "TextDeltaEvent",
+    "ToolUseEvent",
+    "ToolResultEvent",
+    "DoneEvent",
+    "ErrorEvent",
+    "__version__",
+]
