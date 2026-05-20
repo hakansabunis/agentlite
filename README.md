@@ -1,5 +1,9 @@
 # agentlite
 
+[![tests](https://github.com/hakansabunis/agentlite/workflows/tests/badge.svg)](https://github.com/hakansabunis/agentlite/actions)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 > A small, focused library for building Claude-powered agents in Python.
 > Minimal abstractions, prompt caching done right, permissions as a first-class concept.
 
