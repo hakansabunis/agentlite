@@ -1,0 +1,44 @@
+# Python — derleme/cache dosyaları
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.Python
+
+# Build çıktıları (paket inşası sonrası)
+build/
+dist/
+*.whl
+*.tar.gz
+
+# Sanal ortam — kullanıcı kendi makinesinde kurar
+.venv/
+venv/
+env/
+
+# Test ve tip kontrol cache'leri
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# IDE — kişisel ayar dosyaları
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# İşletim sistemi
+.DS_Store
+Thumbs.db
+
+# Yerel testler / scratch — git'e gitmesin
+scratch/
+*.local.py
+.env
+*.env
+
+# Dağıtım sırlarımız asla repo'ya girmesin!
+.pypirc
+.anthropic_api_key
