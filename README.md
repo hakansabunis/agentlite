@@ -35,7 +35,8 @@ If you've ever tried to build a Claude agent in Python you've probably faced thi
 
 ## Status
 
-🚧 **Alpha** (v0.1.0) — under active development. API may change before v1.0.
+🚧 **Alpha** (v0.2.0) — under active development. API may change before v1.0.
+See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
 ## Installation
 
@@ -77,17 +78,25 @@ agent = Agent(
 agent.run("Find all Python files and summarize the largest one.")
 ```
 
-## Features
+## Features (v0.2.0)
 
 - **`@tool` decorator** — type hints become JSON Schema, docstring becomes description.
 - **Built-in agent loop** with `max_turns` safety brake.
-- **Streaming support** — `agent.stream_text()` for token-by-token output.
-- **Prompt caching by default** — system prompt + tools cached automatically;
-  typically ~80% input cost reduction on repeated requests.
-- **Verifiable caching** — inspect `response.usage.cache_read_input_tokens`
-  to confirm hits (no silent failures).
-- **Permission system** (planned) — mark tools as `requires_confirmation` or `read_only`.
-- **Sub-agent support** (planned) — delegate sub-tasks without polluting context.
+- **`agent.stream()`** — full streaming with tool-loop integration. Yields
+  `TextDeltaEvent`, `ToolUseEvent`, `ToolResultEvent`, `DoneEvent` so you can
+  render live token output AND react to tool calls.
+- **Prompt caching by default** — system prompt + tools cached automatically.
+- **`subagent(...)` factory** — delegate sub-tasks to isolated agents without
+  polluting parent context. Sub-agents are exposed as tools.
+- **Permission system** — `@tool(requires_confirmation=True)` with pluggable
+  `confirm_fn` (terminal default, override for GUI/Slack/web).
+- **`tool_choice` control** — `"auto"` / `"any"` / `"none"` / specific tool name.
+- **Typed exceptions** — `AgentError` base + 5 subclasses, structured fields
+  (`.max_turns`, `.tool_name`, `.original`, `.stop_reason`).
+- **`Usage` tracking** — accumulated tokens after each run via `agent.last_usage`,
+  with `.estimate_cost_usd(model)` for built-in pricing.
+- **`agentlite.testing`** — `MockClient` + factories for testing your agent
+  code without hitting the real API.
 
 ## Comparison
 
