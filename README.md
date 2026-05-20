@@ -8,6 +8,10 @@
 > A small, focused library for building Claude-powered agents in Python.
 > Minimal abstractions, prompt caching done right, permissions as a first-class concept.
 
+## What does this project do?
+
+**agentlite** is a tiny (~2,000 lines) Python library that turns plain Python functions into tools an LLM can call, then runs the full agent loop for you — sending the request to Claude, executing the tools Claude asks for, feeding the results back, and stopping when Claude is done. It bakes in three things most lightweight agent libraries skip: **prompt caching is on by default** (~80% input cost reduction on repeated requests), **permission gating is first-class** (mark a tool as `requires_confirmation=True` and the user is asked before it runs), and **a `max_turns` safety brake** prevents runaway loops. You write the tools, you write the system prompt, the library handles the orchestration — no chains, no graphs, no 150K lines of framework to debug.
+
 ```python
 from agentlite import Agent, tool
 
